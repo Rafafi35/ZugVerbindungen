@@ -8,40 +8,24 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
         // Scanner lässt User Eingaben machen
         Scanner scanner = new Scanner(System.in);
-
-        // Nimmt Eingaben auf und Speichert sie in Variabeln
         System.out.println("Von welchem Bahnhof möchten Sie eine Verbindung suchen?");
-        String abfahrtsort = scanner.nextLine();
+        String abfahrtsort = bahnhofFinden(scanner.nextLine());
         String abfahrtsortUrl = abfahrtsort.replace(" ", "%20");
 
         System.out.println("Zu welchem Bahnhof möchten Sie eine Verbindung suchen?");
-        String zielort = scanner.nextLine();
+        String zielort = bahnhofFinden(scanner.nextLine());
         String zielortUrl = zielort.replace(" ", "%20");
 
         try {
-            URL url = new URL("https://transport.opendata.ch/v1/connections?from="
+            JsonObject data = datenBereitstellen("https://transport.opendata.ch/v1/connections?from="
                     + abfahrtsortUrl + "&to=" + zielortUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            StringBuilder jsonResponse = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                jsonResponse.append(line);
-            }
-            reader.close();
-
-            // JSON-String parsen
-            JsonObject data = JsonParser.parseString(jsonResponse.toString()).getAsJsonObject();
-
-
             JsonArray connections = data.getAsJsonArray("connections");
             if (connections != null && connections.size() > 0) {
                 int anzahlVerbindungen = 0;
@@ -62,17 +46,85 @@ public class Main {
                         System.out.println(to.get("arrival").getAsString());
                         System.out.println("Gleis: " + to.get("platform").getAsString());
                         anzahlVerbindungen++;
-                        if (anzahlVerbindungen >= 3){
+                        if (anzahlVerbindungen >= 3) {
                             break;
                         }
                     }
                 }
             } else {
                 System.out.println("Keine Verbindungen gefunden.");
+                System.out.println("https://transport.opendata.ch/v1/connections?from="
+                        + abfahrtsortUrl + "&to=" + zielortUrl);
             }
         } catch (
                 Exception e) {
             System.out.println("Fehler: " + e);
         }
     }
+
+    public static void vorschlaegeAusgeben(ArrayList<String> vorschlaege) {
+        System.out.println("Wählen sie einen dieser Bahnhöfe aus:");
+        for (String s : vorschlaege) {
+            System.out.println(s);
+        }
+    }
+
+    public static JsonObject datenBereitstellen(String urlFuerDaten){
+        try {
+            URL url = new URL(urlFuerDaten);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder jsonResponse = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                jsonResponse.append(line);
+            }
+            reader.close();
+
+            // JSON-String parsen
+            JsonObject data = JsonParser.parseString(jsonResponse.toString()).getAsJsonObject();
+            return data;
+        } catch (Exception e) {
+            System.out.println("Fehler: " + e);
+            return null;
+        }
+    }
+
+    public static String bahnhofFinden(String s) {
+        String ort = s;
+        String ortUrl = ort.replace(" ", "%20");
+
+        try {
+            JsonObject data = datenBereitstellen("http://transport.opendata.ch/v1/locations?query=" + ortUrl);
+            JsonArray stations = data.getAsJsonArray("stations");
+            if (stations != null && stations.size() > 0) {
+                ArrayList<String> vorschlaege = new ArrayList<>();
+                for (int i = 0; i < stations.size(); i++) {
+                    JsonObject station = stations.get(i).getAsJsonObject();
+                    if (!station.get("name").getAsString().equals(ort)) {
+                        vorschlaege.add(station.get("name").getAsString());
+                    } else {
+                        break;
+                    }
+                }
+                if (!vorschlaege.isEmpty()) {
+                    vorschlaegeAusgeben(vorschlaege);
+                    Scanner scanner = new Scanner(System.in);
+                    ort = scanner.nextLine();
+                }
+
+                return ort;
+
+            } else {
+                System.out.println("Keine Bahnhöfe gefunden.");
+                return null;
+            }
+        } catch (Exception e) {
+            System.out.println("Fehler: " + e);
+            return null;
+        }
+    }
+
 }
