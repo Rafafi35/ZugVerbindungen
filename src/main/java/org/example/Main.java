@@ -28,7 +28,7 @@ public class Main {
                     + abfahrtsortUrl + "&to=" + zielortUrl);
             JsonArray connections = data.getAsJsonArray("connections");
             if (connections != null && connections.size() > 0) {
-                int anzahlVerbindungen = 0;
+                int anzahlVerbindungenAusgeben = 0;
                 for (int i = 0; i < connections.size(); i++) {
                     JsonObject connectionObj = connections.get(i).getAsJsonObject();
                     JsonObject from = connectionObj.getAsJsonObject("from");
@@ -45,8 +45,8 @@ public class Main {
                         System.out.println(to_station.get("name").getAsString());
                         System.out.println(to.get("arrival").getAsString());
                         System.out.println("Gleis: " + to.get("platform").getAsString());
-                        anzahlVerbindungen++;
-                        if (anzahlVerbindungen >= 3) {
+                        anzahlVerbindungenAusgeben++;
+                        if (anzahlVerbindungenAusgeben >= 3) {
                             break;
                         }
                     }
@@ -69,7 +69,7 @@ public class Main {
         }
     }
 
-    public static JsonObject datenBereitstellen(String urlFuerDaten){
+    public static JsonObject datenBereitstellen(String urlFuerDaten) {
         try {
             URL url = new URL(urlFuerDaten);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -103,27 +103,29 @@ public class Main {
                 ArrayList<String> vorschlaege = new ArrayList<>();
                 for (int i = 0; i < stations.size(); i++) {
                     JsonObject station = stations.get(i).getAsJsonObject();
-                    if (!station.get("name").getAsString().equals(ort)) {
-                        vorschlaege.add(station.get("name").getAsString());
-                    } else {
+                    if (station.get("name").getAsString().equals(ort)) {
                         break;
+                    } else {
+                        if (vorschlaege.size() < 3) {
+                            vorschlaege.add(station.get("name").getAsString());
+                        }
                     }
                 }
                 if (!vorschlaege.isEmpty()) {
                     vorschlaegeAusgeben(vorschlaege);
                     Scanner scanner = new Scanner(System.in);
-                    ort = scanner.nextLine();
+                    bahnhofFinden(scanner.nextLine());
                 }
 
                 return ort;
 
             } else {
                 System.out.println("Keine Bahnhöfe gefunden.");
-                return null;
+                return ort;
             }
         } catch (Exception e) {
             System.out.println("Fehler: " + e);
-            return null;
+            return ort;
         }
     }
 
